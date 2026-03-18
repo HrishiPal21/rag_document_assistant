@@ -1,0 +1,3 @@
+A RAG system combines information retrieval and text generation. 
+First, documents are split into chunks and converted into embeddings. 
+Then, when a user asks a question, the system retrieves the most relevant chunks and uses them to generate an answer.
