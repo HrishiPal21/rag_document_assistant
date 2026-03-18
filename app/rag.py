@@ -1,8 +1,14 @@
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load secret environment variables from .env file
+load_dotenv()
+
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
-from langchain_text_splitters import CharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -45,22 +51,24 @@ def init_vector_store():
         return
 
     # Split texts
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     texts = text_splitter.split_documents(documents)
     print(f"Loaded {len(documents)} documents, split into {len(texts)} chunks.")
     
-    if not os.environ.get("OPENAI_API_KEY"):
-        print("Warning: OPENAI_API_KEY environment variable is not set. "
+    if not os.environ.get("GOOGLE_API_KEY"):
+        print("Warning: GOOGLE_API_KEY environment variable is not set. "
               "Vector store initialization requires an API key.", file=sys.stderr)
         return
 
     try:
-        # Create embeddings and vector store
-        embeddings = OpenAIEmbeddings()
+        # Create embeddings and vector store using a local model
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        print("Loading local HuggingFace embedding model (this may take a few seconds on first run)...")
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         vector_store = FAISS.from_documents(texts, embeddings)
         
-        # Initialize LLM
-        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+        # Initialize LLM using the new standard Gemini 2.5 Flash model
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, google_api_key=api_key)
         
         # Create prompt
         system_prompt = (
@@ -88,7 +96,7 @@ def get_answer(query: str) -> str:
     global rag_chain
     if rag_chain is None:
         return ("System is not properly initialized. This usually means the "
-                "OPENAI_API_KEY environment variable was not set when starting the server.")
+                "GOOGLE_API_KEY environment variable was not set when starting the server.")
         
     try:
         res = rag_chain.invoke({"input": query})

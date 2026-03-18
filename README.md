@@ -4,7 +4,7 @@ A simple beginner-friendly RAG (Retrieval-Augmented Generation) Document Assista
 
 ## Prerequisites
 - Python 3.8+
-- OpenAI API Key
+- Google API Key
 
 ## Setup
 
@@ -16,9 +16,10 @@ A simple beginner-friendly RAG (Retrieval-Augmented Generation) Document Assista
 2. **Add Documents:**
    Place your `.txt` files in the `data/` folder. A sample document is automatically created on the first start if none exist.
 
-3. **Set your OpenAI API Key:**
+3. **Set your Google API Key:**
+   Get a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
    ```bash
-   export OPENAI_API_KEY="your-api-key-here"
+   export GOOGLE_API_KEY="your-api-key-here"
    ```
 
 ## Running the Application
