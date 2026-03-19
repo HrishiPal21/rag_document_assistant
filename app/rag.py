@@ -16,10 +16,10 @@ from langchain_core.prompts import ChatPromptTemplate
 
 # Global variables for the vector store and RAG chain
 vector_store = None
-rag_chain = None
+question_answer_chain_global = None
 
 def init_vector_store():
-    global vector_store, rag_chain
+    global vector_store, question_answer_chain_global
     print("Initializing vector store...")
     
     # Define paths
@@ -86,20 +86,53 @@ def init_vector_store():
         
         # Create retrieval and Q&A chain
         retriever = vector_store.as_retriever()
-        question_answer_chain = create_stuff_documents_chain(llm, prompt)
-        rag_chain = create_retrieval_chain(retriever, question_answer_chain)
-        print("Vector store and RAG chain initialized successfully.")
+        global question_answer_chain_global
+        question_answer_chain_global = create_stuff_documents_chain(llm, prompt)
+        print("Vector store and QA chain initialized successfully.")
     except Exception as e:
         print(f"Failed to initialize RAG components. Error: {e}", file=sys.stderr)
 
-def get_answer(query: str) -> str:
-    global rag_chain
-    if rag_chain is None:
-        return ("System is not properly initialized. This usually means the "
-                "GOOGLE_API_KEY environment variable was not set when starting the server.")
+def get_answer(query: str) -> dict:
+    global vector_store, question_answer_chain_global
+    if vector_store is None or question_answer_chain_global is None:
+        return {"answer": "System is not properly initialized...", "scores": [], "tokens": {}}
         
     try:
-        res = rag_chain.invoke({"input": query})
-        return res.get("answer", "No answer found.")
+        import time
+        start_time = time.time()
+        
+        # 1. Similarity search with scores
+        docs_and_scores = vector_store.similarity_search_with_score(query, k=5)
+        
+        context_docs = []
+        confidence_scores = []
+        for doc, score in docs_and_scores:
+            context_docs.append(doc)
+            confidence_scores.append(float(score))
+            
+        # 2. Invoke QA chain
+        res_answer = question_answer_chain_global.invoke({
+            "input": query,
+            "context": context_docs
+        })
+        
+        latency = time.time() - start_time
+        
+        # 3. Approximate token usage (if not exposed purely via standard metadata)
+        prompt_tokens = len(query) // 4 + sum(len(d.page_content) // 4 for d in context_docs)
+        completion_tokens = len(res_answer) // 4
+        
+        token_usage = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens
+        }
+        
+        return {
+            "answer": res_answer,
+            "confidence_scores": confidence_scores,
+            "token_usage": token_usage,
+            "latency": latency
+        }
     except Exception as e:
-        return f"An error occurred while getting the answer: {str(e)}"
+        return {"answer": f"An error occurred: {str(e)}", "confidence_scores": [], "token_usage": {}}

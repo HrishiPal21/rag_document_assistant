@@ -26,3 +26,6 @@ venv.bak/
 .DS_Store
 *.db
 *.sqlite3
+
+# Ignore generated dummy records to save space on GitHub
+data/record_*.txt
