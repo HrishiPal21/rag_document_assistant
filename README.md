@@ -20,6 +20,45 @@ An advanced, production-ready **Retrieval-Augmented Generation (RAG)** Document 
   - ⏱️ **End-to-End Latency**: Custom FastAPI middleware calculates and logs total response cycle time.
   - 💬 **Token Usage**: Granular tracking (prompt/completion tokens) for systematic debugging of response cost and efficiency.
 
+## 🏗️ System Architecture Diagram
+
+The complete architecture is documented in [docs/system-architecture.md](docs/system-architecture.md).
+
+```mermaid
+flowchart LR
+    subgraph Ingestion["Ingestion & Indexing Pipeline (Startup)"]
+        A["Text Corpus (data/*.txt)"]
+        B["DirectoryLoader + TextLoader"]
+        C["RecursiveCharacterTextSplitter<br/>chunk_size=1000, overlap=100"]
+        D["HuggingFaceEmbeddings<br/>all-MiniLM-L6-v2"]
+        E["FAISS Vector Store (in-memory)"]
+        A --> B --> C --> D --> E
+    end
+
+    subgraph Serving["Query Serving Pipeline (/ask)"]
+        F["Client Query (POST /ask)"]
+        G["FastAPI Request Validation<br/>(Pydantic models)"]
+        H["get_answer(query)"]
+        I["Similarity Search<br/>k=5 + L2 distance scores"]
+        J["Context Assembly"]
+        K["Gemini 2.5 Flash QA Chain<br/>(LangChain prompt + documents)"]
+        L["Structured API Response<br/>answer + confidence_scores + token_usage + latency"]
+        F --> G --> H --> I --> J --> K --> L
+    end
+
+    subgraph Eval["Offline Evaluation Pipeline"]
+        M["eval/llm_as_judge.py"]
+        N["Fixed Evaluation Query Set"]
+        O["RAG Answer Generation"]
+        P["Gemini Judge Prompt<br/>(0-100 relevance scoring)"]
+        Q["Per-query + Average Scores"]
+        M --> N --> O --> P --> Q
+    end
+
+    E --> I
+    H --> O
+```
+
 ## 🛠️ Tech Stack & Tools
 
 - **Framework**: [FastAPI](https://fastapi.tiangolo.com/) for lightning-fast, highly-concurrent API endpoints.
